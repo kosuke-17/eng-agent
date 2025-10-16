@@ -7,6 +7,7 @@ import { createRequirementsAgent } from "@/agents/requirements/index";
 import type { RequirementsStateInput } from "@/agents/requirements/state";
 import { createSpecToTasksAgent } from "@/agents/spec_to_tasks/index";
 import type { SpecToTasksStateInput } from "@/agents/spec_to_tasks/state";
+import { createKnowledgeSearchAgent } from "@/agents/knowledge-search/index";
 import * as fs from "fs";
 
 const program = new Command();
@@ -250,6 +251,83 @@ program
       console.log(`📁 Tasks: ${options.tasks}\n`);
     } catch (error) {
       console.error("❌ Error running full flow:", error);
+      process.exit(1);
+    }
+  });
+
+// Knowledge Search Agent Command
+program
+  .command("knowledge")
+  .description("Run the Knowledge Search Agent to search code and documentation")
+  .option("-q, --query <query>", "Search query (required)")
+  .option(
+    "-t, --type <type>",
+    "Search type: keyword, semantic, or hybrid",
+    "hybrid"
+  )
+  .option(
+    "-s, --sources <sources>",
+    "Search sources (comma-separated): code,docs,knowledge-base",
+    "code,docs"
+  )
+  .option("-l, --limit <number>", "Maximum number of results", "10")
+  .option("--path <path>", "Path to search in", "./")
+  .action(async (options) => {
+    if (!options.query) {
+      console.error("❌ Error: Query is required. Use -q or --query option.");
+      process.exit(1);
+    }
+
+    console.log("🔍 Starting Knowledge Search Agent...\n");
+    console.log(`Query: "${options.query}"`);
+    console.log(`Type: ${options.type}`);
+    console.log(`Sources: ${options.sources}`);
+    console.log(`Limit: ${options.limit}`);
+    console.log("━".repeat(50) + "\n");
+
+    const agent = createKnowledgeSearchAgent();
+
+    try {
+      const sources = options.sources.split(",").map((s: string) => s.trim());
+      const limit = parseInt(options.limit, 10);
+
+      const result = await agent.simpleSearch(options.query, {
+        searchType: options.type,
+        sources,
+        limit,
+      });
+
+      console.log("✅ Search complete!\n");
+      console.log(`📊 Results: ${result.results.length} / ${result.metadata.totalCount}`);
+      console.log(`⏱️  Search time: ${result.metadata.searchTime}ms`);
+      console.log(`🔖 Sources used: ${result.metadata.sources.join(", ")}`);
+      console.log("\n" + "━".repeat(50) + "\n");
+
+      // Display results
+      result.results.forEach((item, index) => {
+        console.log(`${index + 1}. ${item.title}`);
+        console.log(`   Source: ${item.source}`);
+        console.log(`   Score: ${item.score.toFixed(3)}`);
+        if (item.location.filePath) {
+          const location = item.location.lineNumber
+            ? `${item.location.filePath}:${item.location.lineNumber}`
+            : item.location.filePath;
+          console.log(`   Location: ${location}`);
+        }
+        console.log(`   Excerpt: ${item.excerpt.substring(0, 150)}...`);
+        console.log("");
+      });
+
+      // Display suggestions
+      if (result.suggestions && result.suggestions.length > 0) {
+        console.log("💡 Suggestions:");
+        result.suggestions.forEach((suggestion) => {
+          console.log(`   - ${suggestion}`);
+        });
+        console.log("");
+      }
+    } catch (error) {
+      console.error("❌ Error during search:", error);
       process.exit(1);
     }
   });

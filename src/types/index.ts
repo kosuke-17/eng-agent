@@ -41,3 +41,7 @@ export interface ValidationResult {
   valid: boolean;
   issues: ValidationIssue[];
 }
+
+// Knowledge Search Agent types
+export * from './search.js';
+export * from './agent.js';
